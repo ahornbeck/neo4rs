@@ -12,6 +12,12 @@ pub struct BoltFloat {
     pub value: f64,
 }
 
+impl From<f64> for BoltFloat {
+    fn from(v: f64) -> Self {
+        BoltFloat::new(v)
+    }
+}
+
 impl BoltFloat {
     pub fn new(value: f64) -> BoltFloat {
         BoltFloat { value }

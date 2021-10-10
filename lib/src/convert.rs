@@ -285,6 +285,12 @@ impl Into<BoltType> for &str {
 
 impl Into<BoltType> for bool {
     fn into(self) -> BoltType {
-        BoltType::Boolean(self.into())
+        BoltType::Boolean(BoltBoolean::new(self.into()))
+    }
+}
+
+impl Into<BoltType> for f64 {
+    fn into(self) -> BoltType {
+        BoltType::Float(BoltFloat::new(self.into()))
     }
 }
