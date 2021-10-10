@@ -22,7 +22,7 @@ impl Query {
         }
     }
 
-    pub fn param<T: std::convert::Into<BoltType>>(mut self, key: &str, value: T) -> Self {
+    pub fn param<T: std::convert::Into<BoltType>>(&mut self, key: &str, value: T) -> &Query {
         self.params.put(key.into(), value.into());
         self
     }
