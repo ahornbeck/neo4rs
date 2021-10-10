@@ -27,9 +27,11 @@
 //!    let id = Uuid::new_v4().to_string();
 //!
 //!    let graph = Arc::new(Graph::new(&uri, user, pass).await.unwrap());
-//!    let mut result = graph.run(
-//!      query("CREATE (p:Person {id: $id})").param("id", id.clone())
-//!    ).await.unwrap();
+//! 
+//!    let mut q = query("CREATE (p:Person {id: $id})");
+//!    q.param("id", id.clone());
+//! 
+//!    let mut result = graph.run(q).await.unwrap();
 //!
 //!    let mut handles = Vec::new();
 //!    let mut count = Arc::new(AtomicU32::new(0));
@@ -38,9 +40,11 @@
 //!        let id = id.clone();
 //!        let count = count.clone();
 //!        let handle = tokio::spawn(async move {
-//!            let mut result = graph.execute(
-//!              query("MATCH (p:Person {id: $id}) RETURN p").param("id", id)
-//!            ).await.unwrap();
+//! 
+//!            let mut q = query("MATCH (p:Person {id: $id}) RETURN p");
+//!            q.param("id", id);
+//! 
+//!            let mut result = graph.execute(q).await.unwrap();
 //!            while let Ok(Some(row)) = result.next().await {
 //!                count.fetch_add(1, Ordering::Relaxed);
 //!            }
@@ -102,10 +106,10 @@
 //!
 //!    assert!(graph.run(query("RETURN 1")).await.is_ok());
 //!
-//!    let mut result = graph.execute(
-//!      query( "CREATE (friend:Person {name: $name}) RETURN friend")
-//!     .param("name", "Mr Mark")
-//!    ).await.unwrap();
+//!    let mut q = query( "CREATE (friend:Person {name: $name}) RETURN friend");
+//!    q.param("name", "Mr Mark");
+//! 
+//!    let mut result = graph.execute(q).await.unwrap();
 //!
 //!    while let Ok(Some(row)) = result.next().await {
 //!         let node: Node = row.get("friend").unwrap();
@@ -141,15 +145,26 @@
 //!    let graph = Graph::new(uri, user, pass).await.unwrap();
 //!    let txn = graph.start_txn().await.unwrap();
 //!    let id = Uuid::new_v4().to_string();
+//! 
+//!    let mut q1 = query("CREATE (p:Person {id: $id})");
+//!    q1.param("id", id.clone());
+//! 
+//!    let mut q2 = query("CREATE (p:Person {id: $id})");
+//!    q2.param("id", id.clone());
+//! 
 //!    let result = txn.run_queries(vec![
-//!            query("CREATE (p:Person {id: $id})").param("id", id.clone()),
-//!            query("CREATE (p:Person {id: $id})").param("id", id.clone())
+//!            q1,
+//!            q2
 //!     ]).await;
 //!
 //!    assert!(result.is_ok());
 //!    txn.commit().await.unwrap();
+//! 
+//!    let mut q = query("MATCH (p:Person) WHERE p.id = $id RETURN p.id");
+//!    q.param("id", id.clone());
+//! 
 //!    let mut result = graph
-//!        .execute(query("MATCH (p:Person) WHERE p.id = $id RETURN p.id").param("id", id.clone()))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    # assert!(result.next().await.unwrap().is_some());
@@ -182,18 +197,23 @@
 //!    let graph = Graph::connect(config).await.unwrap();
 //!    let name = Uuid::new_v4().to_string();
 //!    let txn = graph.start_txn().await.unwrap();
-//!
-//!    txn.run_queries(vec![
-//!        query("CREATE (p { name: $name })").param("name", name.clone()),
-//!        query("CREATE (p { name: $name })").param("name", name.clone()),
-//!    ])
+//! 
+//!    let mut q1 = query("CREATE (p { name: $name })");
+//!    q1.param("name", name.clone());
+//! 
+//!    let mut q2 = query("CREATE (p { name: $name })");
+//!    q2.param("name", name.clone());
+//! 
+//!    txn.run_queries(vec![q1, q2])
 //!    .await
 //!    .unwrap();
 //!
+//!    let mut q = query("MATCH (p {name: $name}) RETURN p");
+//!    q.param("name", name.clone());
 //!
 //!    //start stream_one
 //!    let mut stream_one = txn
-//!        .execute(query("MATCH (p {name: $name}) RETURN p").param("name", name.clone()))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    let row = stream_one.next().await.unwrap().unwrap();
@@ -233,16 +253,23 @@
 //!
 //!    let txn = graph.start_txn().await.unwrap();
 //!    let id = Uuid::new_v4().to_string();
+//! 
+//!    let mut q = query("CREATE (p:Person {id: $id})");
+//!    q.param("id", id.clone());
+//! 
 //!    // create a node
-//!    txn.run(query("CREATE (p:Person {id: $id})").param("id", id.clone()))
+//!    txn.run(q)
 //!        .await
 //!        .unwrap();
 //!    // rollback the changes
 //!    txn.rollback().await.unwrap();
 //!
+//!    let mut q = query("MATCH (p:Person) WHERE p.id = $id RETURN p.id");
+//!    q.param("id", id.clone());
+//! 
 //!    // changes not updated in the database
 //!    let mut result = graph
-//!        .execute(query("MATCH (p:Person) WHERE p.id = $id RETURN p.id").param("id", id.clone()))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    assert!(result.next().await.unwrap().is_none());
@@ -273,23 +300,38 @@
 //!    let graph = Graph::new(uri, user, pass).await.unwrap();
 //!    let txn = graph.start_txn().await.unwrap();
 //!    let id = Uuid::new_v4().to_string();
-//!    txn.run(query("CREATE (p:Person {id: $id})").param("id", id.clone()))
+//! 
+//!    let mut q = query("CREATE (p:Person {id: $id})");
+//!    q.param("id", id.clone());
+//! 
+//!    txn.run(q)
 //!        .await
 //!        .unwrap();
-//!    txn.run(query("CREATE (p:Person {id: $id})").param("id", id.clone()))
+//! 
+//!    let mut q = query("CREATE (p:Person {id: $id})");
+//!    q.param("id", id.clone());
+//! 
+//!    txn.run(q)
 //!        .await
 //!        .unwrap();
 //!    // graph.execute(..) will not see the changes done above as the txn is not committed yet
+//! 
+//!    let mut q = query("MATCH (p:Person) WHERE p.id = $id RETURN p.id");
+//!    q.param("id", id.clone());
+//! 
 //!    let mut result = graph
-//!        .execute(query("MATCH (p:Person) WHERE p.id = $id RETURN p.id").param("id", id.clone()))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    assert!(result.next().await.unwrap().is_none());
 //!    txn.commit().await.unwrap();
 //!
+//!    let mut q = query("MATCH (p:Person) WHERE p.id = $id RETURN p.id");
+//!    q.param("id", id.clone());
+//! 
 //!    //changes are now seen as the transaction is committed.
 //!    let mut result = graph
-//!        .execute(query("MATCH (p:Person) WHERE p.id = $id RETURN p.id").param("id", id.clone()))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    assert!(result.next().await.unwrap().is_some());
@@ -426,8 +468,12 @@
 //!    let user = "neo4j";
 //!    let pass = "neo";
 //!    let graph = Graph::new(uri, user, pass).await.unwrap();
+//! 
+//!    let mut q = query("RETURN $b as output");
+//!    q.param("b", vec![11, 12]);
+//! 
 //!    let mut result = graph
-//!        .execute(query("RETURN $b as output").param("b", vec![11, 12]))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    let row = result.next().await.unwrap().unwrap();
@@ -453,8 +499,12 @@
 //!    let pass = "neo";
 //!    let graph = Graph::new(uri, user, pass).await.unwrap();
 //!    let duration = std::time::Duration::new(5259600, 7);
+//! 
+//!    let mut q = query("RETURN $d as output");
+//!    q.param("d", duration);
+//! 
 //!    let mut result = graph
-//!        .execute(query("RETURN $d as output").param("d", duration))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    let row = result.next().await.unwrap().unwrap();
@@ -483,8 +533,12 @@
 //!    let pass = "neo";
 //!    let graph = Graph::new(uri, user, pass).await.unwrap();
 //!    let date = chrono::NaiveDate::from_ymd(1985, 2, 5);
+//! 
+//!    let mut q = query("RETURN $d as output");
+//!    q.param("d", date);
+//! 
 //!    let mut result = graph
-//!        .execute(query("RETURN $d as output").param("d", date))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    let row = result.next().await.unwrap().unwrap();
@@ -523,7 +577,11 @@
 //!
 //!    //send time without offset as param
 //!    let time = chrono::NaiveTime::from_hms_nano(11, 15, 30, 200);
-//!    let mut result = graph.execute(query("RETURN $d as output").param("d", time)).await.unwrap();
+//! 
+//!    let mut q = query("RETURN $d as output");
+//!    q.param("d", time);
+//! 
+//!    let mut result = graph.execute(q).await.unwrap();
 //!    let row = result.next().await.unwrap().unwrap();
 //!    let t: (chrono::NaiveTime, Option<chrono::FixedOffset>) = row.get("output").unwrap();
 //!    assert_eq!(t.0.to_string(), "11:15:30.000000200");
@@ -534,8 +592,12 @@
 //!    //send time with offset as param
 //!    let time = chrono::NaiveTime::from_hms_nano(11, 15, 30, 200);
 //!    let offset = chrono::FixedOffset::east(3 * 3600);
+//! 
+//!    let mut q = query("RETURN $d as output");
+//!    q.param("d", (time, offset));
+//! 
 //!    let mut result = graph
-//!        .execute(query("RETURN $d as output").param("d", (time, offset)))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    let row = result.next().await.unwrap().unwrap();
@@ -621,8 +683,11 @@
 //!    //send datetime as parameter in the query
 //!    let datetime = chrono::DateTime::parse_from_rfc2822("Tue, 01 Jul 2003 10:52:37 +0200").unwrap();
 //!
+//!    let mut q = query("RETURN $d as output");
+//!    q.param("d", datetime);
+//! 
 //!    let mut result = graph
-//!        .execute(query("RETURN $d as output").param("d", datetime))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    let row = result.next().await.unwrap().unwrap();
@@ -633,8 +698,11 @@
 //!    //send NaiveDateTime as parameter in the query
 //!    let localdatetime = chrono::NaiveDateTime::parse_from_str("2015-07-01 08:55:59.123", "%Y-%m-%d %H:%M:%S%.f").unwrap();
 //!
+//!    let mut q = query("RETURN $d as output");
+//!    q.param("d", localdatetime);
+//! 
 //!    let mut result = graph
-//!        .execute(query("RETURN $d as output").param("d", localdatetime))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    let row = result.next().await.unwrap().unwrap();
@@ -646,8 +714,11 @@
 //!    let datetime = chrono::NaiveDateTime::parse_from_str("2015-07-03 08:55:59.555", "%Y-%m-%d %H:%M:%S%.f").unwrap();
 //!    let timezone =  "Europe/Paris";
 //!
+//!    let mut q = query("RETURN $d as output");
+//!    q.param("d", (datetime, timezone));
+//! 
 //!    let mut result = graph
-//!        .execute(query("RETURN $d as output").param("d", (datetime, timezone)))
+//!        .execute(q)
 //!        .await
 //!        .unwrap();
 //!    let row = result.next().await.unwrap().unwrap();
@@ -731,13 +802,16 @@
 //!    let pass = "neo";
 //!    let graph = Graph::new(uri, user, pass).await.unwrap();
 //!    let name = Uuid::new_v4().to_string();
-//!    graph.run(
-//!      query("CREATE (p:Person { name: $name })-[r:WORKS_AT]->(n:Company { name: 'Neo'})").param("name", name.clone()),
-//!    ).await.unwrap();
+//! 
+//!    let mut q = query("CREATE (p:Person { name: $name })-[r:WORKS_AT]->(n:Company { name: 'Neo'})");
+//!    q.param("name", name.clone());
+//! 
+//!    graph.run(q).await.unwrap();
 //!
-//!    let mut result = graph.execute(
-//!       query("MATCH p = (person:Person { name: $name })-[r:WORKS_AT]->(c:Company) RETURN p").param("name", name),
-//!    ).await.unwrap();
+//!    let mut q = query("MATCH p = (person:Person { name: $name })-[r:WORKS_AT]->(c:Company) RETURN p");
+//!    q.param("name", name);
+//! 
+//!    let mut result = graph.execute(q).await.unwrap();
 //!
 //!    let row = result.next().await.unwrap().unwrap();
 //!    let path: Path = row.get("p").unwrap();
