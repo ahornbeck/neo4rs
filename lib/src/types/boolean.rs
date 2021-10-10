@@ -23,6 +23,12 @@ impl BoltBoolean {
     }
 }
 
+impl From<bool> for BoltBoolean {
+    fn from(v: bool) -> Self {
+        BoltBoolean::new(v)
+    }
+}
+
 impl BoltBoolean {
     pub fn into_bytes(self, _: Version) -> Result<Bytes> {
         if self.value {
