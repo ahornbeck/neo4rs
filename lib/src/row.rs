@@ -120,6 +120,12 @@ impl Row {
     pub fn get<T: std::convert::TryFrom<BoltType>>(&self, key: &str) -> Option<T> {
         self.attributes.get(key)
     }
+
+    /// various attributes keys attached to this node
+        pub fn get_keys(&self) -> Vec<String> {
+            self.attributes.value.keys().map(|k| k.to_string()).collect()
+        }
+    
 }
 
 impl Node {
@@ -140,6 +146,16 @@ impl Node {
     /// Get the attributes of the node
     pub fn get<T: std::convert::TryFrom<BoltType>>(&self, key: &str) -> Option<T> {
         self.inner.get(key)
+    }
+
+    /// various property keys attached to this node
+    pub fn get_keys(&self) -> Vec<String> {
+        self.inner
+            .properties
+            .value
+            .keys()
+            .map(|k| k.to_string())
+            .collect()
     }
 }
 
@@ -166,6 +182,16 @@ impl Relation {
 
     pub fn get<T: std::convert::TryFrom<BoltType>>(&self, key: &str) -> Option<T> {
         self.inner.get(key)
+    }
+
+    /// various property keys attached to this node
+    pub fn get_keys(&self) -> Vec<String> {
+        self.inner
+            .properties
+            .value
+            .keys()
+            .map(|k| k.to_string())
+            .collect()
     }
 }
 
